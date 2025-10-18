@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Issue Classifier – Demo (LLM Flow 1→10)</title>
+<style>
+  :root{
+    --bg1:#0f172a; --bg2:#1e293b; --card:#233042; --muted:#94a3b8;
+    --txt:#e2e8f0; --blue:#60a5fa; --purple:#a78bfa; --pink:#ec4899; --cyan:#22d3ee; --teal:#2dd4bf;
+    --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
+    --border:rgba(148,163,184,.15);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color:var(--txt);
+    background: radial-gradient(1200px 600px at 15% 10%, #13233a 0%, transparent 60%),
+                radial-gradient(1000px 600px at 90% 10%, #2a1549 0%, transparent 60%),
+                linear-gradient(135deg, var(--bg1), var(--bg2));
+    min-height:100vh;
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    backdrop-filter: blur(10px);
+    background:rgba(15,23,42,.6);
+    border-bottom:1px solid var(--border);
+  }
+  .wrap{max-width:1200px; margin:0 auto; padding:18px 20px;}
+  .brand{display:flex; gap:12px; align-items:center; font-weight:800; letter-spacing:.2px}
+  .brand .logo{
+    width:34px; height:34px; border-radius:10px;
+    background:conic-gradient(from 200deg, var(--blue), var(--purple), var(--pink));
+    box-shadow:0 0 20px rgba(96,165,250,.35);
+  }
+  nav{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+  .tab{
+    padding:8px 12px; border:1px solid var(--border); border-radius:10px; color:var(--muted);
+    background:rgba(30,41,59,.6); text-decoration:none; font-weight:600; transition:.2s;
+  }
+  .tab:hover{border-color:var(--blue); color:#cfe4ff; transform:translateY(-1px)}
+  .tab.active{background:linear-gradient(135deg, rgba(96,165,250,.18), rgba(167,139,250,.18)); color:#fff; border-color:rgba(96,165,250,.5)}
+  main{max-width:1200px; margin:24px auto; padding:0 20px 60px}
+  .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:18px}
+  .card{
+    background:rgba(35,48,66,.8); border:1px solid var(--border); border-radius:16px; padding:18px;
+    box-shadow:0 8px 24px rgba(0,0,0,.22);
+  }
+  h1{font-size:28px; margin:8px 0 14px;
+     background:linear-gradient(135deg, var(--blue), var(--purple), var(--pink));
+     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;}
+  h2{font-size:18px; margin:0 0 10px; color:#fff}
+  p{color:var(--muted); margin:8px 0 0}
+  .muted{color:var(--muted)}
+  textarea, input, select{
+    width:100%; padding:12px 12px; border-radius:12px; border:1px solid var(--border);
+    background:#0f172a; color:#e2e8f0; outline:none;
+  }
+  textarea{min-height:140px; resize:vertical}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .btn{
+    padding:10px 14px; border-radius:12px; border:1px solid rgba(96,165,250,.45); color:#fff; font-weight:700;
+    background:linear-gradient(135deg, rgba(96,165,250,.25), rgba(167,139,250,.25));
+    cursor:pointer; transition:.2s;
+  }
+  .btn:hover{transform:translateY(-1px); box-shadow:0 10px 24px rgba(96,165,250,.2)}
+  .btn.secondary{border-color:rgba(148,163,184,.3); background:rgba(29,38,54,.7); color:#cbd5e1}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border);
+        background:rgba(15,23,42,.5); color:#cbd5e1;}
+  .chip.blue{border-color:rgba(96,165,250,.5); color:#e6f0ff}
+  .chip.pink{border-color:rgba(236,72,153,.5)}
+  .list{display:grid; gap:10px}
+  .li{padding:10px; border-radius:12px; background:#0f172a; border:1px solid var(--border)}
+  code, pre{
+    background:#0b1221; color:#9ae6ff; border:1px solid rgba(34,211,238,.22);
+    padding:12px; border-radius:12px; overflow:auto; display:block; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12.5px;
+  }
+  .flow{
+    display:grid; gap:12px; margin-top:6px
+  }
+  .flow .step{
+    position:relative; padding:12px 12px 12px 42px; border-radius:12px; background:rgba(22,30,45,.8); border:1px solid var(--border);
+  }
+  .flow .num{
+    position:absolute; left:8px; top:10px; width:24px; height:24px; border-radius:999px; font-size:12px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--blue), var(--purple)); color:#0f172a; font-weight:900; border:1px solid rgba(96,165,250,.5);
+    box-shadow:0 2px 8px rgba(96,165,250,.35);
+  }
+  .kpi{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+  .k{background:#0f172a; border:1px solid var(--border); padding:12px; border-radius:12px; text-align:center}
+  .k .v{font-size:20px; font-weight:900; color:#fff}
+  .k .l{font-size:12px; color:var(--muted)}
+  canvas{width:100%; height:210px; background:#0b1221; border:1px solid rgba(148,163,184,.15); border-radius:12px}
+  .pill{padding:4px 8px; border-radius:8px; font-weight:700}
+  .pill.ok{background:rgba(22,163,74,.18); border:1px solid rgba(22,163,74,.4); color:#b6f0c8}
+  .pill.bad{background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.35); color:#ffc0c0}
+  .pill.warn{background:rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.35); color:#ffe5b4}
+  footer{opacity:.7; text-align:center; padding:30px 10px}
+  @media (max-width:950px){ .grid{grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div>🚀 Intelligent Issue Classification & Routing</div>
+          <small class="muted">Fully client-side demo with mock LLM logic</small>
+        </div>
+      </div>
+      <nav>
+        <a class="tab" href="#/report">Report</a>
+        <a class="tab" href="#/review">Review</a>
+        <a class="tab" href="#/analytics">Analytics</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer>
+    <small class="muted">Built with ❤️ — Demo simulates your full 1→10 LLM flow entirely in the browser.</small>
+  </footer>
+
+<script>
+/* ---------------------------
+   Simple SPA Router
+---------------------------- */
+const routes = {
+  '/report': renderReport,
+  '/review': renderReview,
+  '/analytics': renderAnalytics
+};
+window.addEventListener('hashchange', render);
+window.addEventListener('load', () => {
+  if (!location.hash) location.hash = '#/report';
+  render();
+});
+
+function render(){
+  const path = location.hash.replace('#','') || '/report';
+  document.querySelectorAll('.tab').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+path));
+  const el = document.getElementById('app');
+  el.innerHTML = '';
+  (routes[path] || renderReport)(el);
+}
+
+/* ---------------------------
+   Tiny Local "DB"
+---------------------------- */
+const DB = {
+  tickets: JSON.parse(localStorage.getItem('tickets_v1') || '[]'),
+  kb: [
+    {title:'QC_SOP_Pesticides', text:'Check active ingredient %, expiry date, storage temperature logs, residue tests.'},
+    {title:'Packaging_Specs', text:'Packaging must be sealed, undamaged, legible labels; leakage/dents fail inspection.'},
+    {title:'Stock_SLA', text:'Regional minimum stock threshold 500 units; reallocation within 24h when below.'},
+    {title:'Past_Ticket_001', text:'Poor pesticide efficacy; lab: sub-spec active ingredient; supplier variance found.'},
+    {title:'Past_Ticket_002', text:'Out-of-stock district A; stock moved from district B within 24h as per SLA.'},
+    {title:'Packaging_Checklist', text:'Check seal integrity, label glue, carton compression, drop test results.'}
+  ],
+  save(){ localStorage.setItem('tickets_v1', JSON.stringify(this.tickets)); }
+};
+
+/* ---------------------------
+   Mock Pipeline Helpers
+---------------------------- */
+// Step 2: Clean & privacy
+function redactPII(text){
+  return text
+    .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/g, '[REDACTED-EMAIL]')
+    .replace(/(\+?\d[\d\s-]{7,}\d)/g, '[REDACTED-PHONE]');
+}
+function detectLanguage(text){
+  // naive mock: if contains some common Devanagari chars → 'hi'
+  return /[ऀ-ॿ]/.test(text) ? 'hi' : 'en';
+}
+function translateToEnglish(text, lang){ return text; } // mock: assume ready
+
+function normalize(text){
+  return text.trim().replace(/\s+/g,' ');
+}
+
+// Step 3: Retrieve Context (keyword overlap scoring)
+const KEYWORDS = {
+  'R&D': ['quality','efficacy','adulteration','expiry','contamination','lab','test','ingredient','pesticide'],
+  'Sales': ['stock','out-of-stock','reallocation','supply','backorder','shortage'],
+  'Commercial': ['packaging','leak', 'label','damaged','carton','seal'],
+};
+function tokens(s){ return s.toLowerCase().replace(/[^a-z0-9\s-]/g,' ').split(/\s+/).filter(Boolean); }
+function overlapScore(aTokens, bText){
+  const b = tokens(bText), set = new Set(b); let c = 0;
+  aTokens.forEach(t => { if(set.has(t)) c++; });
+  return c;
+}
+function retrieveContext(text, topK=5){
+  const t = tokens(text);
+  const ranked = DB.kb.map(d => ({...d, score: overlapScore(t, d.text)})).sort((a,b) => b.score - a.score);
+  const out = ranked.slice(0, topK).map(d => ({title:d.title, text:d.text, score:d.score}));
+  return out;
+}
+
+// Step 4: Mock "LLM" classifier (keyword scoring → confidences)
+function classify(cleaned, contextDocs){
+  const t = tokens(cleaned);
+  const scoreMap = {'R&D':0,'Sales':0,'Commercial':0};
+  for(const label of Object.keys(KEYWORDS)){
+    KEYWORDS[label].forEach(k => { if(t.includes(k)) scoreMap[label] += 1; });
+  }
+  // small boost if context titles match label-ish
+  contextDocs.forEach(c=>{
+    if(/QC|lab|pesticide/i.test(c.title)) scoreMap['R&D'] += .5;
+    if(/Stock|SLA/i.test(c.title)) scoreMap['Sales'] += .5;
+    if(/Packaging/i.test(c.title)) scoreMap['Commercial'] += .5;
+  });
+  // normalize to confidences 0..1
+  const labels = Object.keys(scoreMap);
+  let scores = labels.map(k=>scoreMap[k]);
+  const max = Math.max(0, ...scores);
+  scores = max===0 ? [0.25,0.25,0.25] : scores.map(s=>+(s/max).toFixed(2));
+
+  // severity heuristic
+  const sev = /urgent|critical|leak|poison|recall|contamination/i.test(cleaned) ? 'high'
+           : /delay|less|shortage|damaged/i.test(cleaned) ? 'medium' : 'low';
+
+  // rationale
+  const rationale = [];
+  if(scoreMap['R&D']>0) rationale.push('Quality-related terms detected');
+  if(scoreMap['Sales']>0) rationale.push('Stock/availability terms detected');
+  if(scoreMap['Commercial']>0) rationale.push('Packaging/label terms detected');
+
+  return {
+    labels, confidences:scores, severity:sev, rationale: rationale.join('; ') || 'Low-signal input'
+  };
+}
+
+// Step 5: Routing thresholds
+const PRIMARY_TH = 0.6, CC_TH = 0.4;
+function decideRouting(labels, confidences){
+  let primary='Management', cc=[];
+  if(confidences.length){
+    const maxIdx = confidences.indexOf(Math.max(...confidences));
+    primary = confidences[maxIdx] >= PRIMARY_TH ? labels[maxIdx] : 'Management';
+    cc = labels.filter((_,i)=> confidences[i] >= CC_TH && confidences[i] < PRIMARY_TH && labels[i] !== primary);
+    if(confidences.every(s=>s<CC_TH)){ primary='Management'; cc=[]; }
+  }
+  return {primary, cc};
+}
+
+// Step 6: Generate suggestions (quick fixes, root causes, required data, next steps)
+function generateSuggestions(routing, cleaned){
+  const out = {quick_fixes:[], root_causes:[], required_data:[], next_steps:{}};
+  if(routing.primary==='R&D' || routing.cc.includes('R&D')){
+    out.quick_fixes.push('Quarantine current batch');
+    out.root_causes.push('Supplier quality variance','Storage temperature issue');
+    out.required_data.push('Batch test reports','Storage logs','Residue test results');
+    out.next_steps['R&D'] = 'Lab analysis in 48h; share results';
+  }
+  if(routing.primary==='Sales' || routing.cc.includes('Sales')){
+    out.quick_fixes.push('Reallocate stock from nearby region');
+    out.required_data.push('Current inventory snapshot','Open order list');
+    out.next_steps['Sales'] = 'Restock within 24h; update SLAs';
+  }
+  if(routing.primary==='Commercial' || routing.cc.includes('Commercial')){
+    out.quick_fixes.push('Inspect packaging line; replace damaged cartons');
+    out.root_causes.push('Seal integrity failure','Label glue issue');
+    out.required_data.push('Packaging photos','Packaging lot & date');
+    out.next_steps['Commercial'] = 'Run packaging audit in 24h';
+  }
+  if(routing.primary==='Management'){
+    out.next_steps['Management'] = 'Assign owner; request missing evidence';
+  }
+  // dedupe
+  out.quick_fixes = [...new Set(out.quick_fixes)];
+  out.root_causes = [...new Set(out.root_causes)];
+  out.required_data = [...new Set(out.required_data)];
+  return out;
+}
+
+// Step 7: Create ticket + "Notify"
+function createTicket(payload){
+  const id = 'T' + Math.random().toString(36).slice(2,8).toUpperCase();
+  const createdAt = new Date().toISOString();
+  const ticket = { id, createdAt, status:'open', ...payload, needsReview: payload.needsReview ?? false, adminDecision:null };
+  DB.tickets.unshift(ticket); DB.save();
+  return ticket;
+}
+function simulateNotify(ticket){
+  return `Slack/email alerts sent to: ${[ticket.routing.primary, ...ticket.routing.cc].join(', ') || 'Management'}`;
+}
+
+// Step 8: Human review flag
+function needsHumanReview(confidences, routing){
+  const top = Math.max(...confidences);
+  return (top < PRIMARY_TH) || routing.primary==='Management';
+}
+
+/* ---------------------------
+   UI Renderers
+---------------------------- */
+function renderReport(container){
+  container.innerHTML = `
+    <div class="grid">
+      <section class="card">
+        <h1>Submit an Issue</h1>
+        <p>Describe the problem in your own words. The system will clean, retrieve context, classify, route, and generate actions.</p>
+        <div class="chips">
+          <span class="chip">English/Hindi/Hinglish</span>
+          <span class="chip blue">PII scrubbing</span>
+          <span class="chip pink">RAG + Mock LLM</span>
+        </div>
+        <div style="height:8px"></div>
+        <label class="muted">Problem description</label>
+        <textarea id="inpText" placeholder="e.g. Pesticide quality was bad; stock was less; packaging was leaking in Batch A47291."></textarea>
+        <div class="row" style="margin-top:8px">
+          <div style="flex:1">
+            <label class="muted">Region</label>
+            <input id="inpRegion" placeholder="e.g. Nashik, MH" />
+          </div>
+          <div style="width:180px">
+            <label class="muted">Severity (hint)</label>
+            <select id="inpSeverity">
+              <option value="">Auto</option>
+              <option>low</option><option>medium</option><option>high</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="btnRun">Run Full Pipeline</button>
+          <button class="btn secondary" id="btnFill">Fill Example</button>
+        </div>
+
+        <div id="flow" class="flow" style="margin-top:16px"></div>
+      </section>
+
+      <aside class="card">
+        <h2>Live Output</h2>
+        <div class="list">
+          <div class="li"><strong>Cleaned Text</strong><pre id="outClean"></pre></div>
+          <div class="li"><strong>Retrieved Context</strong><pre id="outContext"></pre></div>
+          <div class="li"><strong>LLM JSON (Mock)</strong><pre id="outLLM"></pre></div>
+          <div class="li"><strong>Routing</strong><pre id="outRoute"></pre></div>
+          <div class="li"><strong>Suggestions</strong><pre id="outSug"></pre></div>
+          <div class="li"><strong>Ticket</strong><pre id="outTicket"></pre></div>
+          <div class="li"><strong>Notifications</strong><pre id="outNotify"></pre></div>
+        </div>
+      </aside>
+    </div>
+  `;
+  document.getElementById('btnFill').onclick = () => {
+    document.getElementById('inpText').value = 'Pesticide quality was bad; stock was less; packaging leaking in Batch A47291. It’s urgent.';
+    document.getElementById('inpRegion').value = 'Nashik, MH';
+    document.getElementById('inpSeverity').value = '';
+  };
+  document.getElementById('btnRun').onclick = runPipeline;
+}
+
+async function runPipeline(){
+  const flow = document.getElementById('flow');
+  flow.innerHTML = '';
+  const inp = document.getElementById('inpText').value || '';
+  const region = document.getElementById('inpRegion').value || '—';
+  const sevHint = document.getElementById('inpSeverity').value || '';
+
+  const t0 = performance.now();
+
+  // STEP 1
+  addStep(flow, 1, 'User Submits a Problem', `“${inp.slice(0,220) || '—'}”`);
+
+  // STEP 2
+  const lang = detectLanguage(inp);
+  const cleaned = normalize(redactPII(translateToEnglish(inp, lang)));
+  addStep(flow, 2, 'Text Cleaning & Privacy', `Language: ${lang.toUpperCase()}. PII removed. Normalized text ready.`);
+  setJSON('outClean', {language:lang, cleaned});
+
+  // STEP 3
+  const ctx = retrieveContext(cleaned, 5);
+  addStep(flow, 3, 'Retrieve Helpful Context', `Fetched ${ctx.length} similar references from KB.`);
+  setJSON('outContext', ctx);
+
+  // STEP 4
+  const llm = classify(cleaned, ctx);
+  if(sevHint) llm.severity = sevHint; // allow hint override
+  addStep(flow, 4, 'LLM Reads Everything', `Labels: ${llm.labels.join(', ')} | Confidences: ${llm.confidences.join(', ')} | Severity: ${llm.severity}`);
+  setJSON('outLLM', llm);
+
+  // STEP 5
+  const routing = decideRouting(llm.labels, llm.confidences);
+  addStep(flow, 5, 'Decide Who Owns the Issue', `Primary: ${routing.primary} | CC: ${routing.cc.join(', ') || '—'}`);
+  setJSON('outRoute', routing);
+
+  // STEP 6
+  const suggestions = generateSuggestions(routing, cleaned);
+  addStep(flow, 6, 'Generate Suggestions', `Quick fixes: ${suggestions.quick_fixes.slice(0,2).join('; ')}...`);
+  setJSON('outSug', suggestions);
+
+  // STEP 7
+  const t1 = performance.now();
+  const needsReview = needsHumanReview(llm.confidences, routing);
+  const ticket = createTicket({
+    input: {text: cleaned, region, hintSeverity: sevHint},
+    context: ctx,
+    llm, routing, suggestions,
+    perf: { latencyMs: +(t1 - t0).toFixed(1) },
+    needsReview
+  });
+  addStep(flow, 7, 'Create Ticket & Notify', `Ticket ${ticket.id} created (${ticket.perf.latencyMs} ms).`);
+  setJSON('outTicket', ticket);
+
+  // STEP 7 (notify)
+  const note = simulateNotify(ticket);
+  setJSON('outNotify', {message:note});
+
+  // STEP 8
+  if(needsReview){
+    addStep(flow, 8, 'Human Review (flagged)', 'Low confidence or Management fallback. Visible on Review tab.', 'warn');
+  } else {
+    addStep(flow, 8, 'Human Review (not needed)', 'Confidence sufficient; proceeding.', 'ok');
+  }
+
+  // STEP 9
+  addStep(flow, 9, 'Learn from Feedback', 'When admin completes/overrides, system will store the final outcome for future prompts.');
+
+  // STEP 10
+  addStep(flow, 10, 'Analytics & Monitoring', 'KPIs updated. See Analytics tab for live dashboards.');
+
+  // quick bounce to analytics cards (fake refresh)
+  updateAnalyticsCache();
+}
+
+function addStep(container, n, title, desc, tone){
+  const step = document.createElement('div');
+  step.className = 'step';
+  step.innerHTML = `
+    <div class="num">${n===10?'10':n}</div>
+    <strong>${title}</strong>
+    <div class="muted" style="margin-top:6px">${desc}</div>
+  `;
+  if(tone==='ok'){ step.style.borderColor='rgba(22,163,74,.5)'; }
+  if(tone==='warn'){ step.style.borderColor='rgba(245,158,11,.5)'; }
+  container.appendChild(step);
+}
+function setJSON(id, obj){ document.getElementById(id).textContent = JSON.stringify(obj, null, 2); }
+
+/* ---------------------------
+   Review Page
+---------------------------- */
+function renderReview(container){
+  const pending = DB.tickets.filter(t=> t.needsReview && t.status==='open');
+  const resolved = DB.tickets.filter(t=> !t.needsReview || t.adminDecision);
+
+  container.innerHTML = `
+    <section class="card">
+      <h1>Human Review</h1>
+      <p>Low-confidence or Management-routed tickets appear here for admin verification or correction.</p>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h2>Pending Review (${pending.length})</h2>
+      <div class="list" id="revList">${pending.map(renderTicketRow).join('') || '<div class="li muted">No pending items.</div>'}</div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h2>Recently Resolved</h2>
+      <div class="list">${resolved.slice(0,6).map(renderResolvedRow).join('') || '<div class="li muted">No history yet.</div>'}</div>
+    </section>
+  `;
+
+  // bind actions
+  pending.forEach(t=>{
+    const base = `rev_${t.id}`;
+    const sel = document.getElementById(base+'_sel');
+    const btnAp = document.getElementById(base+'_approve');
+    const btnOv = document.getElementById(base+'_override');
+
+    btnAp && (btnAp.onclick = ()=> finalizeReview(t.id, t.routing.primary));
+    btnOv && (btnOv.onclick = ()=> finalizeReview(t.id, sel.value || 'Management'));
+  });
+}
+
+function renderTicketRow(t){
+  return `
+    <div class="li">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center">
+        <div>
+          <div><strong>${t.id}</strong> <span class="pill warn">NEEDS REVIEW</span></div>
+          <div class="muted" style="margin-top:6px">"${t.input.text.slice(0,120)}${t.input.text.length>120?'…':''}"</div>
+          <div class="chips" style="margin-top:6px">
+            <span class="chip">Primary (AI): ${t.routing.primary}</span>
+            <span class="chip">CC: ${t.routing.cc.join(', ') || '—'}</span>
+            <span class="chip">Severity: ${t.llm.severity}</span>
+            <span class="chip">Latency: ${t.perf.latencyMs}ms</span>
+          </div>
+        </div>
+        <div style="min-width:280px">
+          <label class="muted">Override Department</label>
+          <select id="rev_${t.id}_sel">
+            <option>R&D</option><option>Sales</option><option>Commercial</option><option selected>Management</option>
+          </select>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="rev_${t.id}_approve">Approve AI</button>
+            <button class="btn secondary" id="rev_${t.id}_override">Override</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderResolvedRow(t){
+  return `
+    <div class="li">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center">
+        <div>
+          <div><strong>${t.id}</strong> <span class="pill ok">CLOSED</span></div>
+          <div class="muted" style="margin-top:6px">Final: <strong>${t.adminDecision || t.routing.primary}</strong> • AI: ${t.routing.primary} • Severity: ${t.llm.severity}</div>
+        </div>
+        <div class="muted">${new Date(t.createdAt).toLocaleString()}</div>
+      </div>
+    </div>
+  `;
+}
+function finalizeReview(id, finalDept){
+  const t = DB.tickets.find(x=>x.id===id);
+  if(!t) return;
+  t.adminDecision = finalDept;
+  t.status = 'closed';
+  t.needsReview = false;
+  DB.save();
+  // "learning" hook: count wins/losses for simple analytics
+  updateAnalyticsCache();
+  render();
+}
+
+/* ---------------------------
+   Analytics Page
+---------------------------- */
+let analyticsCache = null;
+function updateAnalyticsCache(){
+  const total = DB.tickets.length;
+  const closed = DB.tickets.filter(t=>t.status==='closed').length;
+  const pending = total - closed;
+  const dist = { 'R&D':0, 'Sales':0, 'Commercial':0, 'Management':0 };
+  let manual=0, correct=0, lat=0;
+
+  DB.tickets.forEach(t=>{
+    dist[t.routing.primary] = (dist[t.routing.primary]||0)+1;
+    if(t.adminDecision) manual++;
+    if(t.adminDecision ? (t.adminDecision===t.routing.primary) : !t.needsReview){ correct++; }
+    lat += (t.perf?.latencyMs||0);
+  });
+
+  const acc = total ? (correct/total) : 0;
+  const manRate = total ? (manual/total) : 0;
+  const avgLat = total ? lat/total : 0;
+
+  analyticsCache = {total, closed, pending, dist, acc, manRate, avgLat};
+}
+function renderAnalytics(container){
+  if(!analyticsCache) updateAnalyticsCache();
+  const A = analyticsCache;
+
+  container.innerHTML = `
+    <section class="card">
+      <h1>Analytics & Monitoring</h1>
+      <p>Live KPIs and trends from your client-side demo. Numbers update as you process and review tickets.</p>
+      <div class="kpi" style="margin-top:10px">
+        <div class="k"><div class="v">${A.total}</div><div class="l">Total Tickets</div></div>
+        <div class="k"><div class="v">${(A.acc*100).toFixed(1)}%</div><div class="l">Routing Accuracy*</div></div>
+        <div class="k"><div class="v">${(A.manRate*100).toFixed(1)}%</div><div class="l">Manual Review Rate</div></div>
+        <div class="k"><div class="v">${A.avgLat.toFixed(0)} ms</div><div class="l">Avg Pipeline Latency</div></div>
+      </div>
+      <p class="muted" style="margin-top:6px">*Accuracy = approvals + auto-confident routes assumed correct in this demo.</p>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h2>Department Distribution</h2>
+      <div class="chips">
+        <span class="chip">R&D: ${A.dist['R&D']||0}</span>
+        <span class="chip">Sales: ${A.dist['Sales']||0}</span>
+        <span class="chip">Commercial: ${A.dist['Commercial']||0}</span>
+        <span class="chip">Management: ${A.dist['Management']||0}</span>
+      </div>
+      <canvas id="chart" height="210"></canvas>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h2>Recent Tickets</h2>
+      <div class="list">
+        ${DB.tickets.slice(0,6).map(t=>`
+          <div class="li">
+            <div style="display:flex; justify-content:space-between; gap:10px">
+              <div>
+                <strong>${t.id}</strong> — Primary: ${t.routing.primary} • Severity: ${t.llm.severity}
+                <div class="muted" style="margin-top:6px">"${t.input.text.slice(0,120)}${t.input.text.length>120?'…':''}"</div>
+              </div>
+              <div style="text-align:right">
+                <div class="pill ${t.status==='closed'?'ok':'warn'}">${t.status.toUpperCase()}</div>
+                <div class="muted" style="margin-top:6px">${new Date(t.createdAt).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+        `).join('') || '<div class="li muted">No tickets yet. Go to Report tab.</div>'}
+      </div>
+    </section>
+  `;
+  drawChart(A.dist);
+}
+function drawChart(dist){
+  const c = document.getElementById('chart');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  const labels = ['R&D','Sales','Commercial','Management'];
+  const data = labels.map(k=>dist[k]||0);
+  const W = c.width, H = c.height;
+  ctx.clearRect(0,0,W,H);
+  // axes
+  ctx.strokeStyle = 'rgba(148,163,184,.35)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(40,10); ctx.lineTo(40,H-30); ctx.lineTo(W-10,H-30); ctx.stroke();
+  const max = Math.max(1, ...data);
+  // bars
+  const colors = ['#60a5fa','#a78bfa','#ec4899','#22d3ee'];
+  const bw = ((W-80)/data.length)*0.6;
+  data.forEach((v,i)=>{
+    const x = 60 + i * ((W-80)/data.length);
+    const h = Math.max(2, (H-60) * (v/max));
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(x, (H-30)-h, bw, h);
+    ctx.fillStyle = '#cbd5e1'; ctx.font='12px ui-monospace';
+    ctx.fillText(labels[i], x, H-12);
+    ctx.fillText(String(v), x+bw/2-6, (H-35)-h);
+  });
+}
+
+/* ---------------------------
+   Seed: add a couple of demo tickets (optional)
+---------------------------- */
+if(DB.tickets.length===0){
+  const seedTexts = [
+    'Pesticide quality was bad and label was misprinted; urgent recall needed.',
+    'Packaging leaking in transit; cartons dented; stock shortage in depot.',
+  ];
+  seedTexts.forEach(txt=>{
+    const cleaned = normalize(redactPII(txt));
+    const ctx = retrieveContext(cleaned);
+    const llm = classify(cleaned, ctx);
+    const routing = decideRouting(llm.labels, llm.confidences);
+    const t0 = performance.now(); const t1=t0+ Math.random()*200+150;
+    createTicket({
+      input:{text:cleaned, region:'—', hintSeverity:''},
+      context:ctx, llm, routing,
+      suggestions:generateSuggestions(routing, cleaned),
+      perf:{latencyMs:+(t1-t0).toFixed(1)},
+      needsReview:needsHumanReview(llm.confidences, routing)
+    });
+  });
+  updateAnalyticsCache();
+}
+</script>
+</body>
+</html>
